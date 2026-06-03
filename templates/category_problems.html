@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="javascript:history.back()" class="back-link">← 返回</a>
+        <h1 id="pageTitle">加载中...</h1>
+    </div>
+
+    <div id="problemList" class="problem-list">
+        <!-- 动态加载 -->
+    </div>
+</div>
+
+<style>
+.problem-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.problem-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.problem-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.problem-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.problem-desc {
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categoryId = {{ category_id }};
+    const problemList = document.getElementById('problemList');
+    const pageTitle = document.getElementById('pageTitle');
+
+    function loadProblems() {
+        fetch(`/api/categories/${categoryId}/problems`)
+            .then(response => response.json())
+            .then(data => {
+                problemList.innerHTML = '';
+                
+                if (data.length === 0) {
+                    pageTitle.textContent = '该分类下暂无问题';
+                    problemList.innerHTML = '<div class="empty-state"><p>管理员尚未在该分类下添加问题</p></div>';
+                    return;
+                }
+
+                // 从第一个问题获取分类名称
+                const categoryName = data[0].category || '问题列表';
+                pageTitle.textContent = categoryName;
+
+                data.forEach(problem => {
+                    const card = document.createElement('div');
+                    card.className = 'problem-card';
+                    card.onclick = () => {
+                        window.location.href = `/problem/${problem.id}`;
+                    };
+
+                    card.innerHTML = `
+                        <div class="problem-title">${problem.title}</div>
+                        ${problem.description ? `<div class="problem-desc">${problem.description}</div>` : ''}
+                    `;
+
+                    problemList.appendChild(card);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                pageTitle.textContent = '加载失败';
+                problemList.innerHTML = '<div class="empty-state"><p>请稍后重试</p></div>';
+            });
+    }
+
+    loadProblems();
+});
+</script>
+{% endblock %}

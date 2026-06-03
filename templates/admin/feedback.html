@@ -1,0 +1,198 @@
+{% extends "admin/base.html" %}
+
+{% block title %}反馈管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>反馈管理</h1>
+    <div class="breadcrumb">首页 / 反馈管理</div>
+</div>
+
+<!-- 筛选栏 -->
+<div class="card">
+    <div class="card-header">
+        <h2>反馈列表</h2>
+    </div>
+    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+        <a href="{{ url_for('feedback') }}" class="btn {% if is_processed_filter is none %}btn-primary{% else %}btn-default{% endif %}">全部</a>
+        <a href="{{ url_for('feedback', is_processed='false') }}" class="btn {% if is_processed_filter == False %}btn-primary{% else %}btn-default{% endif %}">待处理</a>
+        <a href="{{ url_for('feedback', is_processed='true') }}" class="btn {% if is_processed_filter == True %}btn-primary{% else %}btn-default{% endif %}">已处理</a>
+    </div>
+
+    {% if feedbacks %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>产品</th>
+                    <th>问题描述</th>
+                    <th>联系方式</th>
+                    <th>截图</th>
+                    <th>状态</th>
+                    <th>提交时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feedback in feedbacks %}
+                <tr>
+                    <td>{{ feedback.id }}</td>
+                    <td>{{ feedback.product_name }}</td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ feedback.description }}">
+                        {{ feedback.description[:50] }}{% if feedback.description|length > 50 %}...{% endif %}
+                    </td>
+                    <td>{{ feedback.contact or '-' }}</td>
+                    <td>
+                        {% if feedback.files %}
+                            {% for file_type, file_path in feedback.files %}
+                                {% if file_type == 'image' %}
+                                    <button class="btn btn-sm btn-default" onclick="viewImage('/feedback-images/{{ file_path.split('/', 2)[-1] }}')" style="margin: 2px;">查看图片</button>
+                                {% elif file_type == 'archive' %}
+                                    <a href="/feedback-images/{{ file_path.split('/', 2)[-1] }}" class="btn btn-sm btn-default" style="margin: 2px;">下载压缩包</a>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span style="color: #999;">无</span>
+                        {% endif %}
+                        {% if feedback.days_remaining is not none %}
+                            <br><small style="color: {% if feedback.days_remaining <= 3 %}#ff4444{% elif feedback.days_remaining <= 7 %}#ff8800{% else %}#666{% endif %};">
+                                {% if feedback.days_remaining == 0 %}
+                                    ⚠️ 今日清理
+                                {% elif feedback.days_remaining == 1 %}
+                                    ⏰ 剩余1天
+                                {% else %}
+                                    ⏰ 剩余{{ feedback.days_remaining }}天
+                                {% endif %}
+                            </small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if feedback.is_processed %}
+                            <span class="status-tag status-active">已处理</span>
+                        {% else %}
+                            <span class="status-tag status-inactive">待处理</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ feedback.created_at }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="markAsProcessed({{ feedback.id }})" {% if feedback.is_processed %}disabled{% endif %}>
+                            {% if feedback.is_processed %}已处理{% else %}标记处理{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteFeedback({{ feedback.id }})">删除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    {% if pagination.pages > 1 %}
+    <div class="pagination">
+        {% if pagination.has_prev %}
+            <a href="{{ url_for('feedback', page=pagination.prev_num, is_processed=is_processed_filter) }}">上一页</a>
+        {% else %}
+            <span>上一页</span>
+        {% endif %}
+
+        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+                {% if page_num == pagination.page %}
+                    <span class="active">{{ page_num }}</span>
+                {% else %}
+                    <a href="{{ url_for('feedback', page=page_num, is_processed=is_processed_filter) }}">{{ page_num }}</a>
+                {% endif %}
+            {% else %}
+                <span>...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+            <a href="{{ url_for('feedback', page=pagination.next_num, is_processed=is_processed_filter) }}">下一页</a>
+        {% else %}
+            <span>下一页</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p style="color: #999; text-align: center; padding: 40px;">暂无反馈记录</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function viewImage(imageUrl) {
+    // 创建模态框
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.style.zIndex = '2000';
+    modal.innerHTML = `
+        <div class="modal-overlay" style="background: rgba(0,0,0,0.8);" onclick="this.parentElement.remove()"></div>
+        <div class="modal-content" style="max-width: 90%; max-height: 90%; background: transparent; box-shadow: none;">
+            <div style="position: relative; display: inline-block;">
+                <img src="${imageUrl}" style="max-width: 100%; max-height: 80vh; border-radius: 8px;" alt="截图">
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="position: absolute; top: -40px; right: 0; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 20px; line-height: 32px; text-align: center;">×</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function markAsProcessed(feedbackId) {
+    if (!confirm('确定要标记此反馈为已处理吗？')) {
+        return;
+    }
+
+    fetch(`/api/feedback/${feedbackId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + (localStorage.getItem('admin_token') || '')
+        },
+        body: JSON.stringify({ is_processed: true })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('success', '已标记为已处理');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showMessage('error', '操作失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('error', '操作失败');
+    });
+}
+
+function deleteFeedback(feedbackId) {
+    if (!confirm('确定要删除此反馈吗？此操作不可恢复。')) {
+        return;
+    }
+
+    fetch(`/api/feedback/${feedbackId}`, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': 'Bearer ' + (localStorage.getItem('admin_token') || '')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('success', '已删除');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showMessage('error', '操作失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('error', '操作失败');
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,498 @@
+{% extends "admin/base.html" %}
+
+{% block title %}解决方案卡片{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>解决方案卡片管理</h1>
+    <div class="breadcrumb">首页 / 解决方案卡片</div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>卡片列表</h2>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <button class="btn btn-primary" onclick="showAddModal()">+ 添加卡片</button>
+            <a href="/card-categories" class="btn btn-default">卡片分类管理</a>
+        </div>
+    </div>
+
+    <!-- 分类切换 (动态加载) -->
+    <div class="tabs" id="categoryTabs">
+        <!-- 将通过JS动态加载 -->
+    </div>
+
+    {% if cards %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 70px;">序号</th>
+                    <th>故障现象/问题标题</th>
+                    <th>故障类型</th>
+                    <th style="width: 200px;">排查步骤/方法</th>
+                    <th style="width: 180px; text-align: center;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="cardsTableBody">
+                {% for card in cards %}
+                <tr>
+                    <td style="text-align: center;">{{ card.sequence }}</td>
+                    <td><strong>{{ card.title }}</strong></td>
+                    <td>{{ card.fault_type[:20] }}{% if card.fault_type and card.fault_type|length > 20 %}...{% endif %}</td>
+                    <td>{{ card.steps[:40] }}{% if card.steps and card.steps|length > 40 %}...{% endif %}</td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-default btn-sm" onclick="editCard({{ card.id }})">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCard({{ card.id }}, '{{ card.title }}')">删除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">💡</div>
+        <p>该附表暂无卡片数据</p>
+        <button class="btn btn-primary" onclick="showAddModal()">添加第一张卡片</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 添加/编辑卡片模态框 -->
+<div id="cardModal" class="modal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 id="modalTitle">添加卡片</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="cardForm">
+                <input type="hidden" id="cardId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cardCategory">分类 <span class="required">*</span></label>
+                        <select id="cardCategory" class="form-control" required onchange="updateModalTitle()">
+                            <!-- 动态加载 -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cardSequence">序号 <span class="required">*</span></label>
+                        <input type="number" id="cardSequence" class="form-control" required min="1" placeholder="在该分类中的序号">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="cardTitle">故障现象/问题标题 <span class="required">*</span></label>
+                    <input type="text" id="cardTitle" class="form-control" required placeholder="请输入故障现象或问题标题">
+                </div>
+
+                <div class="form-group">
+                    <label for="cardFaultType">故障类型</label>
+                    <input type="text" id="cardFaultType" class="form-control" placeholder="例如：SSH服务配置问题">
+                </div>
+
+                <div class="form-group">
+                    <label for="cardPhenomenon">故障现象说明</label>
+                    <textarea id="cardPhenomenon" class="form-control" rows="3" placeholder="详细描述故障现象"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="cardSteps">排查步骤/方法 <span class="required">*</span></label>
+                    <textarea id="cardSteps" class="form-control" rows="4" required placeholder="请输入详细的排查步骤或方法"></textarea>
+                    <div class="form-hint">建议分步骤描述，每步一行</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="cardSolution">解决方案</label>
+                    <textarea id="cardSolution" class="form-control" rows="4" placeholder="请输入具体的解决方案"></textarea>
+                    <div class="form-hint">包含具体的命令、配置文件修改等</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="cardSupplement">补充信息</label>
+                    <textarea id="cardSupplement" class="form-control" rows="3" placeholder="其他补充说明信息"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-default" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveCard()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3>确认删除</h3>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="warning-icon">⚠️</div>
+            <p>确定要删除卡片 <strong id="deleteCardName"></strong> 吗？</p>
+            <p class="text-muted">此操作不可恢复，请谨慎操作。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-default" onclick="closeDeleteModal()">取消</button>
+            <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+/* 标签页样式 */
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    background: #f5f5f5;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+
+.tab-btn:hover {
+    background: #e6f7ff;
+    border-color: #1890ff;
+    color: #1890ff;
+}
+
+.tab-btn.active {
+    background: #1890ff;
+    border-color: #1890ff;
+    color: white;
+}
+
+.tab-btn.active:hover {
+    background: #40a9ff;
+    border-color: #40a9ff;
+}
+
+/* 表单样式优化 */
+.form-control {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+.form-control:focus {
+    border-color: #1890ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* 模态框标题 */
+.modal-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+</style>
+
+<script>
+let currentCategoryId = null;
+let deleteCardId = null;
+let cardCategories = [];
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories();
+    // 检查是否有flash消息
+    const flashMessage = sessionStorage.getItem('flashMessage');
+    if (flashMessage) {
+        const msg = JSON.parse(flashMessage);
+        showMessage(msg.type, msg.message);
+        sessionStorage.removeItem('flashMessage');
+    }
+});
+
+// 加载分类列表
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/card-categories');
+        cardCategories = await response.json();
+        
+        // 渲染分类标签
+        const tabsContainer = document.getElementById('categoryTabs');
+        if (cardCategories.length === 0) {
+            tabsContainer.innerHTML = '<p class="text-muted">暂无分类，请先在"卡片分类管理"中添加分类</p>';
+            return;
+        }
+        
+        tabsContainer.innerHTML = cardCategories.map((cat, index) => `
+            <button class="tab-btn ${index === 0 ? 'active' : ''}" 
+                    onclick="switchCategory(${cat.id}, this)">${cat.name}</button>
+        `).join('');
+        
+        // 默认选中第一个分类
+        if (cardCategories.length > 0) {
+            currentCategoryId = cardCategories[0].id;
+            loadCards();
+        }
+        
+        // 填充表单中的分类下拉框
+        const cardCategory = document.getElementById('cardCategory');
+        cardCategory.innerHTML = cardCategories.map(cat => 
+            `<option value="${cat.id}">${cat.name}</option>`
+        ).join('');
+    } catch (error) {
+        console.error('加载分类列表失败:', error);
+    }
+}
+
+// 切换分类
+function switchCategory(categoryId, btnElement) {
+    currentCategoryId = categoryId;
+    
+    // 更新标签样式
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    btnElement.classList.add('active');
+    
+    // 重新加载数据
+    loadCards();
+}
+
+// 加载卡片列表
+async function loadCards() {
+    try {
+        const response = await fetch(`/api/solution-cards?category_id=${currentCategoryId}`);
+        const cards = await response.json();
+        
+        const tbody = document.getElementById('cardsTableBody');
+        if (cards.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state" style="padding: 40px;">
+                            <div class="empty-icon">💡</div>
+                            <p>该分类暂无卡片数据</p>
+                            <button class="btn btn-primary" onclick="showAddModal()">添加第一张卡片</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = cards.map(card => `
+            <tr>
+                <td style="text-align: center;">${card.sequence}</td>
+                <td><strong>${escapeHtml(card.title)}</strong></td>
+                <td>${escapeHtml(card.fault_type || '').substring(0, 20)}${card.fault_type && card.fault_type.length > 20 ? '...' : ''}</td>
+                <td>${escapeHtml(card.steps || '').substring(0, 40)}${card.steps && card.steps.length > 40 ? '...' : ''}</td>
+                <td style="text-align: center;">
+                    <button class="btn btn-default btn-sm" onclick="editCard('${card.id}')">编辑</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteCard('${card.id}', '${escapeHtml(card.title).replace(/'/g, "\\'")}')">删除</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('加载卡片列表失败:', error);
+        showMessage('error', '加载卡片列表失败');
+    }
+}
+
+// 转义HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 更新模态框标题
+function updateModalTitle() {
+    const categoryId = document.getElementById('cardCategory').value;
+    const category = cardCategories.find(c => c.id == categoryId);
+    const categoryName = category ? category.name : '';
+    document.getElementById('modalTitle').textContent = `添加卡片 - ${categoryName}`;
+}
+
+// 显示添加模态框
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = '添加卡片';
+    document.getElementById('cardForm').reset();
+    document.getElementById('cardId').value = '';
+    document.getElementById('cardCategory').value = currentCategoryId;
+    updateModalTitle();
+    document.getElementById('cardModal').classList.add('show');
+}
+
+// 关闭模态框
+function closeModal() {
+    document.getElementById('cardModal').classList.remove('show');
+}
+
+// 编辑卡片
+async function editCard(id) {
+    try {
+        const response = await fetch(`/api/solution-cards/${id}`);
+        if (!response.ok) throw new Error('获取卡片信息失败');
+        const card = await response.json();
+        
+        document.getElementById('modalTitle').textContent = '编辑卡片';
+        document.getElementById('cardId').value = card.id;
+        document.getElementById('cardCategory').value = card.category_id || currentCategoryId;
+        document.getElementById('cardSequence').value = card.sequence;
+        document.getElementById('cardTitle').value = card.title;
+        document.getElementById('cardFaultType').value = card.fault_type || '';
+        document.getElementById('cardPhenomenon').value = card.phenomenon || '';
+        document.getElementById('cardSteps').value = card.steps || '';
+        document.getElementById('cardSolution').value = card.solution || '';
+        document.getElementById('cardSupplement').value = card.supplement || '';
+        
+        updateModalTitle();
+        document.getElementById('cardModal').classList.add('show');
+    } catch (error) {
+        showMessage('error', '获取卡片信息失败: ' + error.message);
+    }
+}
+
+// 保存卡片
+async function saveCard() {
+    const id = document.getElementById('cardId').value;
+    const title = document.getElementById('cardTitle').value.trim();
+    const categoryId = parseInt(document.getElementById('cardCategory').value);
+    const sequence = parseInt(document.getElementById('cardSequence').value);
+    const steps = document.getElementById('cardSteps').value.trim();
+    
+    if (!title) {
+        showMessage('error', '请输入故障现象/问题标题');
+        document.getElementById('cardTitle').focus();
+        return;
+    }
+    
+    if (!categoryId) {
+        showMessage('error', '请选择分类');
+        document.getElementById('cardCategory').focus();
+        return;
+    }
+    
+    if (!sequence || sequence < 1) {
+        showMessage('error', '请输入有效的序号');
+        document.getElementById('cardSequence').focus();
+        return;
+    }
+    
+    if (!steps) {
+        showMessage('error', '请输入排查步骤/方法');
+        document.getElementById('cardSteps').focus();
+        return;
+    }
+
+    const data = {
+        category_id: categoryId,
+        table_num: categoryId,
+        sequence: sequence,
+        title: title,
+        fault_type: document.getElementById('cardFaultType').value.trim(),
+        phenomenon: document.getElementById('cardPhenomenon').value.trim(),
+        steps: steps,
+        solution: document.getElementById('cardSolution').value.trim(),
+        supplement: document.getElementById('cardSupplement').value.trim()
+    };
+
+    try {
+        const url = id ? `/api/solution-cards/${id}` : '/api/solution-cards';
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            throw new Error(result.error || '操作失败');
+        }
+        
+        sessionStorage.setItem('flashMessage', JSON.stringify({
+            type: 'success',
+            message: id ? '卡片已更新' : '卡片已创建'
+        }));
+        location.reload();
+        closeModal();
+    } catch (error) {
+        showMessage('error', '操作失败: ' + error.message);
+    }
+}
+
+// 显示删除确认
+function deleteCard(id, title) {
+    deleteCardId = id;
+    document.getElementById('deleteCardName').textContent = title;
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+// 关闭删除确认
+function closeDeleteModal() {
+    deleteCardId = null;
+    document.getElementById('deleteModal').classList.remove('show');
+}
+
+// 确认删除
+async function confirmDelete() {
+    if (!deleteCardId) return;
+
+    try {
+        const response = await fetch(`/api/solution-cards/${deleteCardId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const result = await response.json();
+            throw new Error(result.error || '删除失败');
+        }
+        
+        sessionStorage.setItem('flashMessage', JSON.stringify({
+            type: 'success',
+            message: '卡片已删除'
+        }));
+        location.reload();
+        closeDeleteModal();
+    } catch (error) {
+        showMessage('error', '删除失败: ' + error.message);
+    }
+}
+
+// 点击模态框外部关闭
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+            closeDeleteModal();
+        }
+    });
+});
+
+// 回车保存
+document.getElementById('cardForm').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        saveCard();
+    }
+});
+</script>
+{% endblock %}

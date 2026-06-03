@@ -1,0 +1,112 @@
+{% extends "admin/base.html" %}
+
+{% block title %}仪表盘{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>仪表盘</h1>
+    <div class="breadcrumb">首页 / 仪表盘</div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ product_count }}</div>
+        <div class="stat-label">产品数量</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ problem_count }}</div>
+        <div class="stat-label">问题数量</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ card_count }}</div>
+        <div class="stat-label">解决方案卡片</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ category_count }}</div>
+        <div class="stat-label">问题分类</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ feedback_count }}</div>
+        <div class="stat-label">反馈总数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: #faad14;">{{ feedback_pending }}</div>
+        <div class="stat-label">待处理反馈</div>
+    </div>
+</div>
+
+<!-- 快捷操作
+<div class="card">
+    <div class="card-header">
+        <h2>快捷操作</h2>
+    </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="#" class="btn btn-primary disabled">添加产品 (即将上线)</a>
+        <a href="#" class="btn btn-primary disabled">添加问题 (即将上线)</a>
+        <a href="#" class="btn btn-primary disabled">添加解决方案卡片 (即将上线)</a>
+        <a href="#" class="btn btn-primary disabled">管理快速查询 (即将上线)</a>
+    </div>
+</div> -->
+
+<!-- 最近操作 -->
+<div class="card">
+    <div class="card-header">
+        <h2>最近操作</h2>
+        <!-- <a href="#" class="btn btn-default btn-sm disabled">查看全部 (即将上线)</a> -->
+    </div>
+    {% if recent_logs %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>操作</th>
+                    <th>目标</th>
+                    <th>管理员</th>
+                    <th>IP地址</th>
+                    <th>时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td>
+                        {% if log.action == 'create' %}
+                            <span style="color: #52c41a;">创建</span>
+                        {% elif log.action == 'update' %}
+                            <span style="color: #1890ff;">更新</span>
+                        {% elif log.action == 'delete' %}
+                            <span style="color: #f5222d;">删除</span>
+                        {% elif log.action == 'login' %}
+                            <span style="color: #722ed1;">登录</span>
+                        {% elif log.action == 'logout' %}
+                            <span>登出</span>
+                        {% else %}
+                            {{ log.action }}
+                        {% endif %}
+                    </td>
+                    <td>{{ log.target_type }}{% if log.target_id %} #{{ log.target_id }}{% endif %}</td>
+                    <td>{{ log.admin.username if log.admin else '系统' }}</td>
+                    <td>{{ log.ip_address or '-' }}</td>
+                    <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #999; text-align: center; padding: 20px;">暂无操作记录</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 调试：检查localStorage中的token
+    document.addEventListener('DOMContentLoaded', function() {
+        const token = localStorage.getItem('admin_token');
+        console.log('[Dashboard] localStorage admin_token:', token ? token.substring(0, 20) + '...' : '无');
+        console.log('[Dashboard] 完整localStorage:', localStorage);
+    });
+</script>
+{% endblock %}

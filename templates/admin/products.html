@@ -1,0 +1,286 @@
+{% extends "admin/base.html" %}
+
+{% block title %}产品管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>产品管理</h1>
+    <div class="breadcrumb">首页 / 产品管理</div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>产品列表</h2>
+        <button class="btn btn-primary" onclick="showAddModal()">+ 添加产品</button>
+    </div>
+
+    {% if products %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 60px;">ID</th>
+                    <th>产品名称</th>
+                    <th>描述</th>
+                    <th style="width: 100px; text-align: center;">排序</th>
+                    <th style="width: 100px; text-align: center;">状态</th>
+                    <th style="width: 140px;">创建时间</th>
+                    <th style="width: 180px; text-align: center;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td style="text-align: center;">{{ loop.index }}</td>
+                    <td><strong>{{ product.name }}</strong></td>
+                    <td>{{ product.description[:50] }}{% if product.description and product.description|length > 50 %}...{% endif %}</td>
+                    <td style="text-align: center;">{{ product.sort_order }}</td>
+                    <td style="text-align: center;">
+                        <span class="status-tag {{ 'status-active' if product.is_active else 'status-inactive' }}">
+                            {{ '启用' if product.is_active else '禁用' }}
+                        </span>
+                    </td>
+                    <td>{{ product.created_at[:10] }}</td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-default btn-sm" onclick="editProduct('{{ product.id }}')">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProduct('{{ product.id }}', '{{ product.name }}')">删除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <p>暂无产品数据</p>
+        <button class="btn btn-primary" onclick="showAddModal()">添加第一个产品</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 添加/编辑产品模态框 -->
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">添加产品</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="productForm">
+                <input type="hidden" id="productId">
+                
+                <div class="form-group">
+                    <label for="productName">产品名称 <span class="required">*</span></label>
+                    <input type="text" id="productName" class="form-control" required placeholder="请输入产品名称">
+                    <div class="form-hint">例如：配置核查工具</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="productDescription">产品描述</label>
+                    <textarea id="productDescription" class="form-control" rows="3" placeholder="请输入产品描述（可选）"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="productSortOrder">排序</label>
+                        <input type="number" id="productSortOrder" class="form-control" value="0" min="0">
+                        <div class="form-hint">数字越小越靠前</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="productIsActive" checked>
+                        <span class="checkmark"></span>
+                        启用产品
+                    </label>
+                    <div class="form-hint">禁用后该产品将不会在前端显示</div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-default" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveProduct()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3>确认删除</h3>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="warning-icon">⚠️</div>
+            <p>确定要删除产品 <strong id="deleteProductName"></strong> 吗？</p>
+            <p class="text-muted">此操作不可恢复，请谨慎操作。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-default" onclick="closeDeleteModal()">取消</button>
+            <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let deleteProductId = null;
+
+// 显示添加模态框
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = '添加产品';
+    document.getElementById('productForm').reset();
+    document.getElementById('productId').value = '';
+    document.getElementById('productModal').classList.add('show');
+}
+
+// 关闭模态框
+function closeModal() {
+    document.getElementById('productModal').classList.remove('show');
+}
+
+// 编辑产品
+async function editProduct(id) {
+    try {
+        const response = await fetch(`/api/products/${id}`);
+        if (!response.ok) throw new Error('获取产品信息失败');
+        
+        const product = await response.json();
+        
+        document.getElementById('modalTitle').textContent = '编辑产品';
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name;
+        document.getElementById('productDescription').value = product.description || '';
+        document.getElementById('productSortOrder').value = product.sort_order;
+        document.getElementById('productIsActive').checked = product.is_active;
+        
+        document.getElementById('productModal').classList.add('show');
+    } catch (error) {
+        showMessage('error', '获取产品信息失败: ' + error.message);
+    }
+}
+
+// 保存产品
+async function saveProduct() {
+    const id = document.getElementById('productId').value;
+    const name = document.getElementById('productName').value.trim();
+    
+    if (!name) {
+        showMessage('error', '请输入产品名称');
+        document.getElementById('productName').focus();
+        return;
+    }
+
+    const data = {
+        name: name,
+        description: document.getElementById('productDescription').value.trim(),
+        sort_order: parseInt(document.getElementById('productSortOrder').value) || 0,
+        is_active: document.getElementById('productIsActive').checked
+    };
+
+    try {
+        const url = id ? `/api/products/${id}` : '/api/products';
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) throw new Error('操作失败');
+        
+        const result = await response.json();
+        
+        if (result.success || result.id) {
+            console.log('[saveProduct] 保存成功，刷新列表并显示提示');
+            // 先刷新列表，再显示提示
+            location.reload();
+            // 注意：由于页面刷新，这里需要重新显示提示
+            // 我们可以使用 sessionStorage 来传递提示信息
+            sessionStorage.setItem('flashMessage', JSON.stringify({
+                type: 'success',
+                message: id ? '产品已更新' : '产品已创建'
+            }));
+            closeModal();
+        } else {
+            console.log('[saveProduct] 保存响应异常:', result);
+            showMessage('error', '操作失败');
+        }
+    } catch (error) {
+        console.error('[saveProduct] 异常:', error);
+        showMessage('error', '操作失败: ' + error.message);
+    }
+}
+
+// 显示删除确认
+function deleteProduct(id, name) {
+    deleteProductId = id;
+    document.getElementById('deleteProductName').textContent = name;
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+// 关闭删除确认
+function closeDeleteModal() {
+    deleteProductId = null;
+    document.getElementById('deleteModal').classList.remove('show');
+}
+
+// 确认删除
+async function confirmDelete() {
+    if (!deleteProductId) return;
+
+    try {
+        const response = await fetch(`/api/products/${deleteProductId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('删除失败');
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('[confirmDelete] 删除成功，刷新列表并显示提示');
+            // 先刷新列表，再显示提示
+            location.reload();
+            // 使用 sessionStorage 传递提示信息
+            sessionStorage.setItem('flashMessage', JSON.stringify({
+                type: 'success',
+                message: '产品已删除'
+            }));
+            closeDeleteModal();
+        } else {
+            console.log('[confirmDelete] 删除响应异常:', result);
+            showMessage('error', '删除失败');
+        }
+    } catch (error) {
+        console.error('[confirmDelete] 异常:', error);
+        showMessage('error', '删除失败: ' + error.message);
+    }
+}
+
+// 点击模态框外部关闭
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+            closeDeleteModal();
+        }
+    });
+});
+
+// 回车保存
+document.getElementById('productForm').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveProduct();
+    }
+});
+</script>
+{% endblock %}

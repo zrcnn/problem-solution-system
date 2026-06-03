@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="{{ url_for('pages.product_detail', product_id=product.id) }}" class="back-link">← 返回</a>
+        <h1>{{ product.name }} - 全量问题</h1>
+    </div>
+
+    <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="🔍 搜索解决方案..." class="search-input">
+    </div>
+
+    <div id="cardsList" class="cards-list">
+        <!-- 动态加载内容 -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productId = "{{ product.id }}";
+    const searchInput = document.getElementById('searchInput');
+    const listContainer = document.getElementById('cardsList');
+
+    function loadCards(keyword = '') {
+        let url = `/api/products/${productId}/problems?`;
+        if (keyword) url += `q=${encodeURIComponent(keyword)}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                listContainer.innerHTML = '';
+                
+                if (data.length === 0) {
+                    listContainer.innerHTML = '<div class="empty-state">暂无相关解决方案</div>';
+                    return;
+                }
+
+                data.forEach((card, index) => {
+                    const cardEl = createSolutionCard(card, index);
+                    listContainer.appendChild(cardEl);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                listContainer.innerHTML = '<div class="error-message">加载失败，请稍后重试</div>';
+            });
+    }
+
+    function createSolutionCard(problem, index) {
+        const cardEl = document.createElement('div');
+        cardEl.className = 'solution-card';
+        cardEl.style.cursor = 'pointer';
+        
+        // 构建卡片头部
+        const headerHtml = `
+            <span class="solution-card-title">${problem.title}</span>
+            ${problem.category ? `<span class="card-tag">${problem.category}</span>` : ''}
+            <span class="solution-card-toggle">▼</span>
+        `;
+        
+        // 构建卡片内容
+        let bodyHtml = '';
+        
+        if (problem.description) {
+            bodyHtml += `
+                <div class="card-field">
+                    <div class="card-field-label">问题描述</div>
+                    <div class="card-field-value"><pre>${problem.description}</pre></div>
+                </div>
+            `;
+        }
+        
+        if (problem.created_at) {
+            bodyHtml += `
+                <div class="card-field">
+                    <div class="card-field-label">创建时间</div>
+                    <div class="card-field-value">${problem.created_at}</div>
+                </div>
+            `;
+        }
+        
+        // 添加查看详情按钮
+        bodyHtml += `
+            <div class="card-field" style="margin-top: 16px;">
+                <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.location.href='/problem/${problem.id}'">
+                    查看详细解决方案
+                </button>
+            </div>
+        `;
+        
+        cardEl.innerHTML = `
+            <div class="solution-card-header">
+                ${headerHtml}
+            </div>
+            <div class="solution-card-body">
+                <div class="solution-card-content">
+                    ${bodyHtml}
+                </div>
+            </div>
+        `;
+        
+        // 绑定点击事件
+        const header = cardEl.querySelector('.solution-card-header');
+        const toggle = cardEl.querySelector('.solution-card-toggle');
+        const body = cardEl.querySelector('.solution-card-body');
+        
+        header.addEventListener('click', function() {
+            const isExpanded = body.classList.contains('expanded');
+            if (isExpanded) {
+                body.classList.remove('expanded');
+                toggle.classList.remove('expanded');
+            } else {
+                body.classList.add('expanded');
+                toggle.classList.add('expanded');
+            }
+        });
+        
+        return cardEl;
+    }
+
+    // 初始加载
+    loadCards();
+
+    // 搜索功能
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            loadCards(this.value.trim());
+        }, 300);
+    });
+});
+</script>
+
+<style>
+/* 解决方案卡片样式 */
+.solution-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.solution-card-header {
+    padding: 20px 24px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.solution-card-header:hover {
+    background: #f0f1f2;
+}
+
+.solution-card-title {
+    font-weight: 600;
+    font-size: 18px;
+    color: #2c3e50;
+    flex: 1;
+    line-height: 1.4;
+}
+
+.solution-card-toggle {
+    font-size: 20px;
+    color: #7f8c8d;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.solution-card-toggle.expanded {
+    transform: rotate(180deg);
+}
+
+.solution-card-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.solution-card-body.expanded {
+    max-height: 5000px;
+}
+
+.solution-card-content {
+    padding: 24px;
+}
+
+.card-field {
+    margin-bottom: 20px;
+}
+
+.card-field:last-child {
+    margin-bottom: 0;
+}
+
+.card-field-label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 16px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.4;
+}
+
+.card-field-value {
+    color: #555;
+    line-height: 1.8;
+    font-size: 15px;
+}
+
+.card-field-value pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    font-family: inherit;
+}
+
+.card-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background: #e3f2fd;
+    color: #1976d2;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+/* 搜索框样式 */
+.filter-bar {
+    margin-bottom: 24px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: #2563eb;
+}
+</style>
+{% endblock %}

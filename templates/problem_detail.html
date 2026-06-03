@@ -1,0 +1,620 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="javascript:history.back()" class="back-link">← 返回</a>
+        <h1>问题详情</h1>
+    </div>
+
+    <div class="problem-detail">
+        <div class="detail-header">
+            <h2 id="problemTitle">{{ problem.title }}</h2>
+            {% if problem.category %}
+            <span class="category-tag">{{ problem.category.name }}</span>
+            {% endif %}
+        </div>
+
+        <div class="detail-content">
+            <div class="detail-section">
+                <h3>问题描述</h3>
+                <div class="description-card">
+                    <div class="description-header" id="descriptionToggle">
+                        <span class="description-preview" id="descriptionPreview">点击展开查看详情...</span>
+                        <span class="description-toggle-icon">▼</span>
+                    </div>
+                    <div class="description-body" id="descriptionBody">
+                        <div class="description-content" id="problemDescription">
+                            {{ (problem.description or '暂无描述') | safe }}
+                        </div>
+                        <button class="description-close-btn" id="descriptionCloseBtn" title="收起描述">
+                            ▲
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {% if problem.screenshot_path %}
+            <div class="detail-section">
+                <h3>问题截图</h3>
+                <div class="screenshot">
+                    <img src="{{ problem.screenshot_path }}" alt="问题截图">
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="detail-section">
+                <h3>问题排查</h3>
+                <div id="solutionsList" class="solutions-list">
+                    <!-- 动态加载解决方案 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 解决方案卡片样式 */
+.solution-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.solution-card-header {
+    padding: 20px 24px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.solution-card-header:hover {
+    background: #f0f1f2;
+}
+
+.solution-card-title {
+    font-weight: 600;
+    font-size: 18px;
+    color: #2c3e50;
+    flex: 1;
+    line-height: 1.4;
+}
+
+.solution-card-toggle {
+    font-size: 20px;
+    color: #7f8c8d;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.solution-card-toggle.expanded {
+    transform: rotate(180deg);
+}
+
+.solution-card-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.solution-card-body.expanded {
+    max-height: 5000px;
+}
+
+.solution-card-content {
+    padding: 24px;
+}
+
+.card-field {
+    margin-bottom: 20px;
+}
+
+.card-field:last-child {
+    margin-bottom: 0;
+}
+
+.card-field-label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 16px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.4;
+}
+
+.card-field-value {
+    color: #555;
+    line-height: 1.8;
+    font-size: 15px;
+}
+
+.card-field-value pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    font-family: inherit;
+}
+
+.card-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background: #e3f2fd;
+    color: #1976d2;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+/* 普通解决方案样式 */
+.solution-item {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.solution-steps, .solution-solution {
+    margin-bottom: 12px;
+}
+
+.solution-steps:last-child, .solution-solution:last-child {
+    margin-bottom: 0;
+}
+
+.solution-steps strong, .solution-solution strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #2c3e50;
+    font-size: 16px;
+}
+
+.solution-steps p, .solution-solution p {
+    font-size: 15px;
+    line-height: 1.8;
+    color: #555;
+}
+
+/* 问题描述卡片样式 */
+.description-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 16px;
+}
+
+.description-header {
+    padding: 20px 24px;
+    background: #f8f9fa;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.description-header:hover {
+    background: #f0f1f2;
+}
+
+.description-preview {
+    font-weight: 600;
+    font-size: 16px;
+    color: #2c3e50;
+    flex: 1;
+}
+
+.description-toggle-icon {
+    font-size: 20px;
+    color: #7f8c8d;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.description-toggle-icon.expanded {
+    transform: rotate(180deg);
+}
+
+.description-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.description-body.expanded {
+    max-height: 5000px;
+}
+
+.description-content {
+    padding: 24px;
+    line-height: 1.8;
+    font-size: 15px;
+    color: #555;
+}
+
+.description-content strong {
+    color: #2c3e50;
+    display: block;
+    margin: 16px 0 8px 0;
+    font-size: 16px;
+}
+
+.description-content strong:first-child {
+    margin-top: 0;
+}
+
+/* 收起按钮样式 */
+.description-close-btn {
+    display: none;
+    width: 33%;
+    margin: 20px auto 20px;
+    padding: 6px 0;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 18px;
+    color: #7f8c8d;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.description-close-btn:hover {
+    background: #e9ecef;
+    color: #495057;
+    border-color: #adb5bd;
+}
+
+.description-close-btn:active {
+    background: #dee2e6;
+    transform: scale(0.98);
+}
+
+.description-body.expanded .description-close-btn {
+    display: block;
+}
+
+/* 解决方案卡片收起按钮样式 */
+.solution-close-btn {
+    display: none;
+    width: 33%;
+    margin: 20px auto 20px;
+    padding: 6px 0;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 18px;
+    color: #7f8c8d;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.solution-close-btn:hover {
+    background: #e9ecef;
+    color: #495057;
+    border-color: #adb5bd;
+}
+
+.solution-close-btn:active {
+    background: #dee2e6;
+    transform: scale(0.98);
+}
+
+.solution-card-body.expanded .solution-close-btn {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const problemId = '{{ encrypted_id }}';  // 使用加密ID
+
+    fetch(`/api/problems/${problemId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('problemTitle').textContent = data.title;
+            
+            // 设置问题描述（通过API获取，确保HTML格式正确）
+            const descriptionElement = document.getElementById('problemDescription');
+            if (descriptionElement) {
+                descriptionElement.innerHTML = data.description || '暂无描述';
+            }
+            
+            // 初始化问题描述卡片
+            initDescriptionCard();
+
+            const solutionsList = document.getElementById('solutionsList');
+            if (data.solutions && data.solutions.length > 0) {
+                data.solutions.forEach((solution, index) => {
+                    if (solution.type === 'quick_lookup' && solution.cards) {
+                        // 快速查询类型：显示可展开的解决方案卡片
+                        solution.cards.forEach((card, cardIndex) => {
+                            const cardEl = createSolutionCard(card, cardIndex);
+                            solutionsList.appendChild(cardEl);
+                        });
+                    } else if (solution.type === 'normal') {
+                        // 普通问题类型：使用可展开的卡片样式展示
+                        const cardEl = document.createElement('div');
+                        cardEl.className = 'solution-card';
+                        
+                        // 构建卡片头部
+                        const headerHtml = `
+                            <span class="solution-card-title">解决方案</span>
+                            <span class="solution-card-toggle">▼</span>
+                        `;
+                        
+                        // 构建卡片内容
+                        let bodyHtml = '<div class="solution-card-content">';
+                        
+                        if (solution.description) {
+                            bodyHtml += `
+                                <div class="card-field">
+                                    <div class="card-field-label">问题描述</div>
+                                    <div class="card-field-value"><pre>${solution.description}</pre></div>
+                                </div>
+                            `;
+                        }
+                        
+                        if (solution.solution) {
+                            bodyHtml += `
+                                <div class="card-field">
+                                    <div class="card-field-label">解决方案</div>
+                                    <div class="card-field-value"><pre>${solution.solution}</pre></div>
+                                </div>
+                            `;
+                        }
+                        
+                        bodyHtml += '</div>';
+                        bodyHtml += `<button class="solution-close-btn" title="收起">▲</button>`;
+                        
+                        cardEl.innerHTML = `
+                            <div class="solution-card-header">
+                                ${headerHtml}
+                            </div>
+                            <div class="solution-card-body">
+                                ${bodyHtml}
+                            </div>
+                        `;
+                        
+                        // 绑定点击事件
+                        const header = cardEl.querySelector('.solution-card-header');
+                        const toggle = cardEl.querySelector('.solution-card-toggle');
+                        const body = cardEl.querySelector('.solution-card-body');
+                        const closeBtn = cardEl.querySelector('.solution-close-btn');
+                        
+                        header.addEventListener('click', function() {
+                            const isExpanded = body.classList.contains('expanded');
+                            if (isExpanded) {
+                                body.classList.remove('expanded');
+                                toggle.classList.remove('expanded');
+                            } else {
+                                body.classList.add('expanded');
+                                toggle.classList.add('expanded');
+                            }
+                        });
+                        
+                        if (closeBtn) {
+                            closeBtn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                body.classList.remove('expanded');
+                                toggle.classList.remove('expanded');
+                            });
+                        }
+                        
+                        solutionsList.appendChild(cardEl);
+                    } else {
+                        // 兼容旧格式
+                        const solutionItem = document.createElement('div');
+                        solutionItem.className = 'solution-item';
+                        
+                        if (solution.content) {
+                            solutionItem.innerHTML = `<div class="solution-text">${solution.content}</div>`;
+                        } else if (solution.steps || solution.solution) {
+                            let html = '';
+                            if (solution.steps) {
+                                html += `<div class="solution-steps"><strong>排查步骤：</strong><p>${solution.steps}</p></div>`;
+                            }
+                            if (solution.solution) {
+                                html += `<div class="solution-solution"><strong>解决方案：</strong><p>${solution.solution}</p></div>`;
+                            }
+                            solutionItem.innerHTML = html;
+                        }
+                        
+                        solutionsList.appendChild(solutionItem);
+                    }
+                });
+            } else {
+                solutionsList.innerHTML = '<div class="empty-state">暂无解决方案</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('solutionsList').innerHTML = '<div class="error-message">加载失败</div>';
+        });
+});
+
+// 初始化问题描述卡片
+function initDescriptionCard() {
+    const toggle = document.getElementById('descriptionToggle');
+    const body = document.getElementById('descriptionBody');
+    const icon = document.querySelector('.description-toggle-icon');
+    const preview = document.getElementById('descriptionPreview');
+    const content = document.getElementById('problemDescription');
+    const closeBtn = document.getElementById('descriptionCloseBtn');
+    
+    if (!toggle || !body || !content) return;
+    
+    // 生成预览文本（取描述的前50个字符）
+    const textContent = content.textContent || content.innerText;
+    if (textContent.length > 50) {
+        preview.textContent = textContent.substring(0, 50) + '...';
+    } else {
+        preview.textContent = textContent || '暂无描述';
+    }
+    
+    // 收起功能
+    function collapseDescription() {
+        body.classList.remove('expanded');
+        icon.classList.remove('expanded');
+        // 更新预览文本
+        if (textContent.length > 50) {
+            preview.textContent = textContent.substring(0, 50) + '...';
+        } else {
+            preview.textContent = textContent || '暂无描述';
+        }
+    }
+    
+    // 绑定点击事件（标题栏）
+    toggle.addEventListener('click', function() {
+        const isExpanded = body.classList.contains('expanded');
+        if (isExpanded) {
+            collapseDescription();
+        } else {
+            body.classList.add('expanded');
+            icon.classList.add('expanded');
+            preview.textContent = '点击收起';
+        }
+    });
+    
+    // 绑定收起按钮事件
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // 防止冒泡到父元素
+            collapseDescription();
+        });
+    }
+}
+
+function createSolutionCard(card, index) {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'solution-card';
+    
+    // 构建卡片标签
+    let tagHtml = '';
+    if (card.table_num) {
+        const tableNames = {
+            1: '物理环境',
+            2: '资产排查',
+            3: '网络问题'
+        };
+        tagHtml = `<span class="card-tag">附表${card.table_num}-${tableNames[card.table_num] || ''}</span>`;
+    }
+    
+    // 构建卡片头部
+    const headerHtml = `
+        <span class="solution-card-title">${card.title}</span>
+        ${tagHtml}
+        <span class="solution-card-toggle">▼</span>
+    `;
+    
+    // 构建卡片内容
+    let bodyHtml = '<div class="solution-card-content">';
+    
+    if (card.fault_type) {
+        bodyHtml += `
+            <div class="card-field">
+                <div class="card-field-label">故障类型</div>
+                <div class="card-field-value">${card.fault_type}</div>
+            </div>
+        `;
+    }
+    
+    if (card.phenomenon) {
+        bodyHtml += `
+            <div class="card-field">
+                <div class="card-field-label">故障现象说明</div>
+                <div class="card-field-value"><pre>${card.phenomenon}</pre></div>
+            </div>
+        `;
+    }
+    
+    if (card.steps) {
+        bodyHtml += `
+            <div class="card-field">
+                <div class="card-field-label">排查操作步骤</div>
+                <div class="card-field-value"><pre>${card.steps}</pre></div>
+            </div>
+        `;
+    }
+    
+    if (card.solution) {
+        bodyHtml += `
+            <div class="card-field">
+                <div class="card-field-label">解决方案</div>
+                <div class="card-field-value"><pre>${card.solution}</pre></div>
+            </div>
+        `;
+    }
+    
+    if (card.supplement) {
+        bodyHtml += `
+            <div class="card-field">
+                <div class="card-field-label">补充信息</div>
+                <div class="card-field-value"><pre>${card.supplement}</pre></div>
+            </div>
+        `;
+    }
+    
+    bodyHtml += '</div>';
+    
+    // 添加收起按钮
+    bodyHtml += `<button class="solution-close-btn" title="收起">▲</button>`;
+    
+    cardEl.innerHTML = `\n        <div class="solution-card-header">
+            ${headerHtml}
+        </div>
+        <div class="solution-card-body">
+            ${bodyHtml}
+        </div>
+    `;
+    
+    // 绑定点击事件
+    const header = cardEl.querySelector('.solution-card-header');
+    const toggle = cardEl.querySelector('.solution-card-toggle');
+    const body = cardEl.querySelector('.solution-card-body');
+    const closeBtn = cardEl.querySelector('.solution-close-btn');
+    
+    header.addEventListener('click', function() {
+        const isExpanded = body.classList.contains('expanded');
+        if (isExpanded) {
+            body.classList.remove('expanded');
+            toggle.classList.remove('expanded');
+        } else {
+            body.classList.add('expanded');
+            toggle.classList.add('expanded');
+        }
+    });
+    
+    // 绑定收起按钮事件
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            body.classList.remove('expanded');
+            toggle.classList.remove('expanded');
+        });
+    }
+    
+    return cardEl;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="{{ url_for('pages.index') }}" class="back-link">← 返回</a>
+        <h1>{{ product.name }} - 选择分类</h1>
+    </div>
+
+    <!-- 动态加载的分类列表 -->
+    <div id="categoryList" class="category-list">
+        <!-- 由JavaScript动态加载 -->
+    </div>
+</div>
+
+<style>
+.category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.category-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.category-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.category-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.category-count {
+    background: #1890ff;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+}
+
+.category-desc {
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productId = "{{ product.id }}";
+    const categoryList = document.getElementById('categoryList');
+
+    function loadCategories() {
+        fetch(`/api/products/${productId}/categories`)
+            .then(response => response.json())
+            .then(data => {
+                categoryList.innerHTML = '';
+                
+                if (data.length === 0) {
+                    categoryList.innerHTML = `
+                        <div class="empty-state">
+                            <p>暂无分类</p>
+                            <p style="font-size: 14px; margin-top: 8px;">管理员尚未配置问题分类</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                data.forEach(category => {
+                    const card = document.createElement('div');
+                    card.className = 'category-card';
+                    
+                    // 区分"所有解决方案卡片"分类和其他问题分类
+                    if (category.is_card_category) {
+                        card.onclick = () => {
+                            window.location.href = `/category/${category.id}/solution-cards`;
+                        };
+                        card.innerHTML = `
+                            <div class="category-header">
+                                <div class="category-name">${category.name}</div>
+                                <div class="category-count">查看所有卡片</div>
+                            </div>
+                            <div class="category-desc">浏览和筛选所有解决方案卡片，支持按类型筛选</div>
+                        `;
+                    } else {
+                        card.onclick = () => {
+                            window.location.href = `/category/${category.id}/problems`;
+                        };
+                        card.innerHTML = `
+                            <div class="category-header">
+                                <div class="category-name">${category.name}</div>
+                                <div class="category-count">${category.problem_count} 个问题</div>
+                            </div>
+                            ${category.description ? `<div class="category-desc">${category.description}</div>` : ''}
+                        `;
+                    }
+
+                    categoryList.appendChild(card);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                categoryList.innerHTML = '<div class="empty-state"><p>加载失败，请稍后重试</p></div>';
+            });
+    }
+
+    loadCategories();
+});
+</script>
+{% endblock %}

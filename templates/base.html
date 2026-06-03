@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.SYSTEM_TITLE }} - {{ config.COMPANY_NAME }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="navbar-brand">
+            <img src="data:image/png;base64,{{ products[0].logo_data if products and products[0].logo_data else '' }}" 
+                 alt="Logo" 
+                 class="navbar-logo"
+                 onerror="this.style.display='none'">
+            <span class="company-name">{{ config.COMPANY_NAME }}</span>
+        </div>
+        <nav class="navbar-menu">
+            <a href="{{ url_for('pages.index') }}" class="nav-link">首页</a>
+            <button class="feedback-btn" onclick="openFeedbackModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                反馈
+            </button>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2024 {{ config.COMPANY_NAME }} - {{ config.SYSTEM_TITLE }} v{{ config.SYSTEM_VERSION }}</p>
+    </footer>
+
+    <!-- 反馈弹窗 -->
+    <div class="modal-overlay" id="feedbackModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>问题反馈</h2>
+                <button class="modal-close" onclick="closeFeedbackModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="feedbackForm" onsubmit="submitFeedback(event)">
+                    <div class="form-group">
+                        <label for="productId">选择产品 <span class="required">*</span></label>
+                        <select class="form-control" id="productId" name="product_id" required>
+                            <option value="">请选择产品</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">问题描述 <span class="required">*</span></label>
+                        <textarea class="form-control" id="description" name="description" 
+                                  placeholder="请详细描述您遇到的问题..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>截图上传（支持多文件）</label>
+                        <div class="file-upload" id="imageUpload">
+                            <input type="file" id="imageFiles" name="images" accept="image/*" multiple onchange="handleImageSelect(event)">
+                            <div class="file-upload-icon">📁</div>
+                            <div class="file-upload-text">点击或拖拽图片到此处上传<br><small>支持 PNG, JPG, GIF 格式，可多选，最大 50MB</small></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>压缩包上传（可选）</label>
+                        <div class="file-upload" id="archiveUpload">
+                            <input type="file" id="archiveFiles" name="archives" accept=".zip,.rar,.7z,.tar,.gz" multiple onchange="handleArchiveSelect(event)">
+                            <div class="file-upload-icon">📦</div>
+                            <div class="file-upload-text">点击或拖拽压缩包到此处上传<br><small>支持 ZIP, RAR, 7Z, TAR, GZ 格式，可多选，最大 50MB</small></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>已选择文件</label>
+                        <div class="file-preview" id="filePreview">
+                            <p style="color: #999; font-size: 12px;">未选择文件</p>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="contact">联系方式（可选）</label>
+                        <input type="text" class="form-control" id="contact" name="contact" 
+                               placeholder="邮箱或手机号，方便我们联系您">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeFeedbackModal()">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitFeedback(event)">提交反馈</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

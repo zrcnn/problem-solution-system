@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <a href="{{ url_for('pages.product_detail', product_id=product.id) }}" class="back-link">← 返回</a>
+        <h1>{{ product.name }} - 快速查询</h1>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 搜索关键词..." class="search-input">
+    </div>
+
+    <div id="quickLookupList" class="quick-lookup-list">
+        <!-- 动态加载内容 -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productId = "{{ product.id }}";
+    const searchInput = document.getElementById('searchInput');
+    const listContainer = document.getElementById('quickLookupList');
+
+    function loadQuickLookup(keyword = '') {
+        const url = keyword 
+            ? `/api/products/${productId}/quick-lookup?q=${encodeURIComponent(keyword)}`
+            : `/api/products/${productId}/quick-lookup`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                listContainer.innerHTML = '';
+                
+                if (data.length === 0) {
+                    listContainer.innerHTML = '<div class="empty-state">暂无相关查询结果</div>';
+                    return;
+                }
+
+                data.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'lookup-card';
+                    card.onclick = () => {
+                        window.location.href = `/problem/${item.problem.id}`;
+                    };
+                    
+                    card.innerHTML = `
+                        <div class="lookup-keyword">${item.keyword}</div>
+                        <div class="lookup-problem">${item.problem.title}</div>
+                        ${item.problem.category ? `<div class="lookup-category">${item.problem.category}</div>` : ''}
+                    `;
+                    
+                    listContainer.appendChild(card);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                listContainer.innerHTML = '<div class="error-message">加载失败，请稍后重试</div>';
+            });
+    }
+
+    // 初始加载
+    loadQuickLookup();
+
+    // 搜索功能
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            loadQuickLookup(this.value.trim());
+        }, 300);
+    });
+});
+</script>
+{% endblock %}

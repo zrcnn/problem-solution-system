@@ -1,0 +1,465 @@
+{% extends "admin/base.html" %}
+
+{% block title %}问题管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>问题管理</h1>
+    <div class="breadcrumb">首页 / 问题管理</div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>问题列表</h2>
+        <button class="btn btn-primary" onclick="showAddModal()">+ 添加问题</button>
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>产品：</label>
+            <select id="filterProduct" class="form-control" onchange="loadProblems()">
+                <option value="">全部产品</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>分类：</label>
+            <select id="filterCategory" class="form-control" onchange="loadProblems()">
+                <option value="">全部分类</option>
+            </select>
+        </div>
+    </div>
+
+    {% if problems %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 60px;">ID</th>
+                    <th>问题标题</th>
+                    <th>所属产品</th>
+                    <th>分类</th>
+                    <th style="width: 140px;">创建时间</th>
+                    <th style="width: 180px; text-align: center;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for problem in problems %}
+                <tr>
+                    <td style="text-align: center;">{{ loop.index }}</td>
+                    <td><strong>{{ problem.title }}</strong></td>
+                    <td>{{ problem.product_name }}</td>
+                    <td>{{ problem.category_name or '-' }}</td>
+                    <td>{{ problem.created_at[:10] }}</td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-default btn-sm" onclick="editProblem('{{ problem.id }}')">编辑</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProblem('{{ problem.id }}', '{{ problem.title }}')">删除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">❓</div>
+        <p>暂无问题数据</p>
+        <button class="btn btn-primary" onclick="showAddModal()">添加第一个问题</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 添加/编辑问题模态框 -->
+<div id="problemModal" class="modal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 id="modalTitle">添加问题</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="problemForm">
+                <input type="hidden" id="problemId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="problemProduct">所属产品 <span class="required">*</span></label>
+                        <select id="problemProduct" class="form-control" required onchange="loadCategories()">
+                            <option value="">请选择产品</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="problemCategory">问题分类</label>
+                        <select id="problemCategory" class="form-control">
+                            <option value="">请选择分类</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="problemTitle">问题标题 <span class="required">*</span></label>
+                    <input type="text" id="problemTitle" class="form-control" required placeholder="请输入问题标题">
+                    <div class="form-hint">例如：IP连接异常/连接被服务端主动关闭</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="problemDescription">问题描述</label>
+                    <textarea id="problemDescription" class="form-control" rows="4" placeholder="请详细描述问题现象"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="problemSolution">解决方案</label>
+                    <textarea id="problemSolution" class="form-control" rows="6" placeholder="请输入详细的解决方案和排查步骤"></textarea>
+                    <div class="form-hint">支持多行文本，建议包含具体的命令和操作步骤</div>
+                </div>
+
+                <div class="form-group">
+                    <label>关联解决方案卡片</label>
+                    <div class="card-selector">
+                        <div class="card-selector-header">
+                            <span>选择要关联的解决方案卡片（可多选）</span>
+                        </div>
+                        <div id="cardSelector" class="card-selector-body">
+                            <p class="text-muted" style="padding: 20px; text-align: center;">请先加载卡片列表</p>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-default" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveProblem()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3>确认删除</h3>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="warning-icon">⚠️</div>
+            <p>确定要删除问题 <strong id="deleteProblemName"></strong> 吗？</p>
+            <p class="text-muted">此操作不可恢复，请谨慎操作。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-default" onclick="closeDeleteModal()">取消</button>
+            <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let products = [];
+let categories = [];
+let solutionCards = [];
+let deleteProblemId = null;
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadProducts();
+    loadCategories();
+    loadSolutionCards();
+});
+
+// 加载产品列表
+async function loadProducts() {
+    try {
+        const response = await fetch('/api/products');
+        products = await response.json();
+        
+        // 填充筛选器
+        const filterProduct = document.getElementById('filterProduct');
+        filterProduct.innerHTML = '<option value="">全部产品</option>';
+        products.forEach(p => {
+            filterProduct.innerHTML += `<option value="${p.raw_id}">${p.name}</option>`;
+        });
+        
+        // 填充表单
+        const problemProduct = document.getElementById('problemProduct');
+        problemProduct.innerHTML = '<option value="">请选择产品</option>';
+        products.forEach(p => {
+            problemProduct.innerHTML += `<option value="${p.raw_id}">${p.name}</option>`;
+        });
+    } catch (error) {
+        console.error('加载产品列表失败:', error);
+    }
+}
+
+// 加载分类列表
+async function loadCategories() {
+    const productId = document.getElementById('problemProduct').value;
+    
+    try {
+        // 如果没有选择产品，不加载分类
+        if (!productId) {
+            const problemCategory = document.getElementById('problemCategory');
+            problemCategory.innerHTML = '<option value="">请先选择产品</option>';
+            return;
+        }
+        
+        // 调用后端 API 获取该产品的分类
+        const response = await fetch(`/api/categories?product_id=${productId}`);
+        const categories = await response.json();
+        
+        // 填充表单中的分类下拉框
+        const problemCategory = document.getElementById('problemCategory');
+        problemCategory.innerHTML = '<option value="">请选择分类</option>';
+        categories.forEach(c => {
+            problemCategory.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        });
+    } catch (error) {
+        console.error('加载分类列表失败:', error);
+    }
+}
+
+// 加载解决方案卡片列表
+async function loadSolutionCards() {
+    try {
+        const response = await fetch('/api/solution-cards');
+        solutionCards = await response.json();
+    } catch (error) {
+        console.error('加载解决方案卡片失败:', error);
+    }
+}
+
+// 渲染卡片选择器
+function renderCardSelector(selectedCardIds = []) {
+    const container = document.getElementById('cardSelector');
+    
+    if (solutionCards.length === 0) {
+        container.innerHTML = '<p class="text-muted" style="padding: 20px; text-align: center;">暂无解决方案卡片</p>';
+        return;
+    }
+    
+    let html = '';
+    solutionCards.forEach(card => {
+        const isChecked = selectedCardIds.includes(card.id) ? 'checked' : '';
+        html += `
+            <label class="card-checkbox">
+                <input type="checkbox" value="${card.id}" ${isChecked} onchange="updateSelectedCards()">
+                <span class="card-title">附表${card.table_num}-${card.sequence}: ${card.title}</span>
+            </label>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// 更新选中的卡片
+function updateSelectedCards() {
+    // 此函数在保存时调用，无需额外操作
+}
+
+// 获取选中的卡片ID列表
+function getSelectedCardIds() {
+    const checkboxes = document.querySelectorAll('#cardSelector input[type="checkbox"]:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+// 加载问题列表
+async function loadProblems() {
+    const productId = document.getElementById('filterProduct').value;
+    const categoryId = document.getElementById('filterCategory').value;
+    
+    let url = '/api/problems?';
+    if (productId) url += `product_id=${productId}&`;
+    if (categoryId) url += `category_id=${categoryId}&`;
+    
+    try {
+        const response = await fetch(url);
+        const problems = await response.json();
+        
+        // 动态更新表格
+        const tbody = document.querySelector('tbody');
+        if (problems.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state" style="padding: 40px;">
+                            <div class="empty-icon">❓</div>
+                            <p>暂无问题数据</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = problems.map((problem, index) => `
+            <tr>
+                <td style="text-align: center;">${index + 1}</td>
+                <td><strong>${escapeHtml(problem.title)}</strong></td>
+                <td>${escapeHtml(problem.product_name || '-')}</td>
+                <td>${escapeHtml(problem.category_name || '-')}</td>
+                <td>${problem.created_at.substring(0, 10)}</td>
+                <td style="text-align: center;">
+                    <button class="btn btn-default btn-sm" onclick="editProblem('${problem.id}')">编辑</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteProblem('${problem.id}', '${escapeHtml(problem.title).replace(/'/g, "\\'")}')">删除</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('加载问题列表失败:', error);
+        showMessage('error', '加载问题列表失败');
+    }
+}
+
+// 显示添加模态框
+function showAddModal() {
+    document.getElementById('modalTitle').textContent = '添加问题';
+    document.getElementById('problemForm').reset();
+    document.getElementById('problemId').value = '';
+    // 渲染卡片选择器（空选择）
+    renderCardSelector([]);
+    document.getElementById('problemModal').classList.add('show');
+}
+
+// 关闭模态框
+function closeModal() {
+    document.getElementById('problemModal').classList.remove('show');
+}
+
+// 编辑问题
+async function editProblem(id) {
+    try {
+        const response = await fetch(`/api/problems/${id}`);
+        if (!response.ok) throw new Error('获取问题信息失败');
+        
+        const problem = await response.json();
+        
+        document.getElementById('modalTitle').textContent = '编辑问题';
+        document.getElementById('problemId').value = problem.id;
+        document.getElementById('problemProduct').value = problem.product_id;
+        
+        // 加载该产品下的分类
+        await loadCategories();
+        
+        document.getElementById('problemCategory').value = problem.category_id || '';
+        document.getElementById('problemTitle').value = problem.title;
+        document.getElementById('problemDescription').value = problem.description || '';
+        document.getElementById('problemSolution').value = problem.solution || '';
+        
+        // 渲染卡片选择器
+        renderCardSelector(problem.card_ids || []);
+        
+        document.getElementById('problemModal').classList.add('show');
+    } catch (error) {
+        showMessage('error', '获取问题信息失败: ' + error.message);
+    }
+}
+
+// 保存问题
+async function saveProblem() {
+    const id = document.getElementById('problemId').value;
+    const title = document.getElementById('problemTitle').value.trim();
+    const productId = document.getElementById('problemProduct').value;
+    
+    if (!title) {
+        showMessage('error', '请输入问题标题');
+        document.getElementById('problemTitle').focus();
+        return;
+    }
+    
+    if (!productId) {
+        showMessage('error', '请选择所属产品');
+        document.getElementById('problemProduct').focus();
+        return;
+    }
+
+    const data = {
+        title: title,
+        description: document.getElementById('problemDescription').value.trim(),
+        solution: document.getElementById('problemSolution').value.trim(),
+        product_id: parseInt(productId),
+        category_id: document.getElementById('problemCategory').value ? parseInt(document.getElementById('problemCategory').value) : null,
+        card_ids: getSelectedCardIds()  // 添加选中的卡片ID列表
+    };
+
+    try {
+        const url = id ? `/api/problems/${id}` : '/api/problems';
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await apiRequest(url, method, data);
+        
+        if (!response || !response.success) {
+            throw new Error(response?.error || '操作失败');
+        }
+        
+        // 保存成功后显示提示并重定向到列表页
+        sessionStorage.setItem('flashMessage', JSON.stringify({
+            type: 'success',
+            message: id ? '问题已更新' : '问题已创建'
+        }));
+        location.reload();
+        closeModal();
+    } catch (error) {
+        showMessage('error', '操作失败: ' + error.message);
+    }
+}
+
+// 显示删除确认
+function deleteProblem(id, title) {
+    console.log('[deleteProblem] 接收到ID:', id, '标题:', title);
+    deleteProblemId = id;
+    document.getElementById('deleteProblemName').textContent = title;
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+// 关闭删除确认
+function closeDeleteModal() {
+    deleteProblemId = null;
+    document.getElementById('deleteModal').classList.remove('show');
+}
+
+// 确认删除
+async function confirmDelete() {
+    if (!deleteProblemId) return;
+    
+    console.log('[confirmDelete] 尝试删除问题ID:', deleteProblemId);
+
+    try {
+        const response = await apiRequest(`/api/problems/${deleteProblemId}`, 'DELETE');
+        
+        console.log('[confirmDelete] 响应状态:', response);
+        
+        if (!response || !response.success) {
+            throw new Error(response?.error || '删除失败');
+        }
+        
+        // 删除成功后显示提示并重定向到列表页
+        sessionStorage.setItem('flashMessage', JSON.stringify({
+            type: 'success',
+            message: '问题已删除'
+        }));
+        location.reload();
+        closeDeleteModal();
+    } catch (error) {
+        console.error('[confirmDelete] 异常:', error);
+        showMessage('error', '删除失败: ' + error.message);
+    }
+}
+
+// 点击模态框外部关闭
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+            closeDeleteModal();
+        }
+    });
+});
+
+// 回车保存
+document.getElementById('problemForm').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveProblem();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>请选择产品</h1>
+    </div>
+
+    <div class="product-list">
+        {% for product in products %}
+        <div class="product-card" onclick="location.href='{{ url_for('pages.product_detail', product_id=product.id) }}'">
+            <div class="product-name">{{ product.name }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

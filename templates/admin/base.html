@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}管理后台{% endblock %} - 现场问题解决方案管理系统</title>
+    <style>
+        /* 全局样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            overflow-y: scroll; /* 始终显示垂直滚动条，防止界面偏移 */
+        }
+
+        /* 顶部导航栏 */
+        .header {
+            background: #1890ff;
+            color: white;
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .header-logo {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-user a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        .header-user a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 60px;
+            bottom: 0;
+            width: 240px;
+            background: white;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            z-index: 900;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 16px 0;
+        }
+
+        .sidebar-menu li {
+            margin: 4px 0;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .sidebar-menu a:hover {
+            background: #f0f2f5;
+            color: #1890ff;
+        }
+
+        .sidebar-menu a.active {
+            background: #e6f7ff;
+            color: #1890ff;
+            border-right: 3px solid #1890ff;
+        }
+
+        .sidebar-menu .menu-icon {
+            margin-right: 12px;
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            margin-left: 240px;
+            margin-top: 60px;
+            padding: 24px;
+            min-height: calc(100vh - 60px);
+        }
+
+        /* 页面标题 */
+        .page-header {
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .page-header .breadcrumb {
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* 卡片 */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .card-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* 按钮 */
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #40a9ff;
+        }
+
+        .btn-default {
+            background: #fff;
+            color: #666;
+            border: 1px solid #d9d9d9;
+        }
+
+        .btn-default:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+
+        .btn-danger {
+            background: #f5222d;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff4d4f;
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+
+        /* 表格 */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        th {
+            background: #fafafa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        /* 状态标签 */
+        .status-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .status-active {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+
+        .status-inactive {
+            background: #f5f5f5;
+            color: #999;
+            border: 1px solid #d9d9d9;
+        }
+
+        /* 表单 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group label .required {
+            color: #f5222d;
+            margin-left: 4px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #40a9ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* 消息提示 */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        .alert-success {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+
+        .alert-error {
+            background: #fff2f0;
+            color: #f5222d;
+            border: 1px solid #ffccc7;
+        }
+
+        .alert-info {
+            background: #e6f7ff;
+            color: #1890ff;
+            border: 1px solid #91d5ff;
+        }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #1890ff;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .stat-label {
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* 分页 */
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 24px;
+        }
+
+        .pagination a, .pagination span {
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .pagination a:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+
+        .pagination .active {
+            background: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* 卡片选择器样式 */
+        .card-selector {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+        
+        .card-selector-header {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 500;
+            font-size: 14px;
+            color: #555;
+            background: #f5f5f5;
+            border-radius: 6px 6px 0 0;
+        }
+        
+        .card-selector-body {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px 15px;
+        }
+        
+        .card-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 4px 0;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .card-checkbox:hover {
+            background: #f0f7ff;
+            border-color: #1890ff;
+        }
+        
+        .card-checkbox input[type="checkbox"] {
+            margin-right: 10px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        
+        .card-checkbox .card-title {
+            font-size: 13px;
+            color: #333;
+            line-height: 1.4;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <div class="header">
+        <div class="header-logo">现场问题解决方案管理系统</div>
+        <div class="header-user">
+            <span>{{ session.get('admin_username', '管理员') }}</span>
+            <a href="{{ url_for('logout') }}">退出</a>
+        </div>
+    </div>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <ul class="sidebar-menu">
+            <li>
+                <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <span class="menu-icon">📊</span>
+                    仪表盘
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('products') }}" class="{% if 'product' in request.endpoint %}active{% endif %}">
+                    <span class="menu-icon">📦</span>
+                    产品管理
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('categories') }}" class="{% if 'category' in request.endpoint %}active{% endif %}">
+                    <span class="menu-icon">📁</span>
+                    分类管理
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('problems') }}" class="{% if 'problem' in request.endpoint %}active{% endif %}">
+                    <span class="menu-icon">❓</span>
+                    问题管理
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('solution_cards') }}" class="{% if 'solution' in request.endpoint %}active{% endif %}">
+                    <span class="menu-icon">💡</span>
+                    解决方案卡片
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('feedback') }}" class="{% if 'feedback' in request.endpoint %}active{% endif %}">
+                    <span class="menu-icon">💬</span>
+                    反馈管理
+                </a>
+            </li>
+            <!-- <li>
+                <a href="#" class="disabled">
+                    <span class="menu-icon">🔍</span>
+                    快速查询 (即将上线)
+                </a>
+            </li>
+            <li>
+                <a href="#" class="disabled">
+                    <span class="menu-icon">📝</span>
+                    操作日志 (即将上线)
+                </a>
+            </li> -->
+        </ul>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        // 通用JavaScript功能
+        // 模态弹窗通知
+        function showMessage(type, message) {
+            // 控制台打印（调试用）
+            console.log('[showMessage] 类型:', type, '消息:', message);
+            
+            // 移除旧的弹窗
+            const existingModal = document.querySelector('.message-modal');
+            if (existingModal) {
+                console.log('[showMessage] 发现旧弹窗，移除中');
+                existingModal.remove();
+            }
+
+            const modal = document.createElement('div');
+            modal.className = 'message-modal';
+            
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+            const title = type === 'success' ? '操作成功' : type === 'error' ? '操作失败' : '提示信息';
+            
+            modal.innerHTML = `
+                <div class="modal-overlay"></div>
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-icon ${type}">${icon}</div>
+                        <h3 class="modal-title">${title}</h3>
+                        <p class="modal-message">${message}</p>
+                        <button class="modal-btn" onclick="this.closest('.message-modal').remove()">确定</button>
+                    </div>
+                </div>
+            `;
+            
+            console.log('[showMessage] 将弹窗添加到DOM');
+            document.body.appendChild(modal);
+            
+            // 动画显示
+            setTimeout(() => {
+                console.log('[showMessage] 添加show类，触发动画');
+                modal.classList.add('show');
+            }, 10);
+        }
+
+        // 页面加载时检查是否有待显示的提示信息
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                const flashMessage = sessionStorage.getItem('flashMessage');
+                if (flashMessage) {
+                    const { type, message } = JSON.parse(flashMessage);
+                    console.log('[DOMContentLoaded] 检测到sessionStorage中的提示信息:', type, message);
+                    // 延迟一点显示，确保页面已完全加载
+                    setTimeout(() => {
+                        showMessage(type, message);
+                        // 显示后清除
+                        sessionStorage.removeItem('flashMessage');
+                    }, 300);
+                }
+            } catch (error) {
+                console.error('[DOMContentLoaded] 处理flashMessage时出错:', error);
+                sessionStorage.removeItem('flashMessage');
+            }
+        });
+
+        // API请求封装
+        async function apiRequest(url, method = 'GET', data = null) {
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+            
+            // 每次请求时重新获取token，确保使用最新的
+            const authToken = localStorage.getItem('admin_token');
+            console.log('[apiRequest] URL:', url, 'Token存在:', !!authToken, 'Token前20位:', authToken ? authToken.substring(0, 20) + '...' : '无');
+            if (authToken) {
+                options.headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            const response = await fetch(url, options);
+            
+            // 如果返回401，说明token过期或无效，跳转到登录页
+            if (response.status === 401) {
+                localStorage.removeItem('admin_token');
+                window.location.href = '/login';
+                return;
+            }
+            
+            return response.json();
+        }
+
+        // 确认删除
+        function confirmDelete(itemName) {
+            return confirm(`确定要删除"${itemName}"吗？此操作不可恢复。`);
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+
+    <style>
+        .message-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .message-modal.show {
+            opacity: 1;
+        }
+        
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-dialog {
+            position: relative;
+            z-index: 1;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        
+        .message-modal.show .modal-dialog {
+            transform: scale(1);
+        }
+        
+        .modal-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .modal-icon.success {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 2px solid #52c41a;
+        }
+        
+        .modal-icon.error {
+            background: #fff1f0;
+            color: #ff4d4f;
+            border: 2px solid #ff4d4f;
+        }
+        
+        .modal-icon.info {
+            background: #e6f7ff;
+            color: #1890ff;
+            border: 2px solid #1890ff;
+        }
+        
+        .modal-title {
+            margin: 0 0 10px;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .modal-message {
+            margin: 0 0 25px;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .modal-btn {
+            padding: 10px 30px;
+            border: none;
+            border-radius: 6px;
+            background: #1890ff;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .modal-btn:hover {
+            background: #40a9ff;
+        }
+    </style>
+</body>
+</html>
