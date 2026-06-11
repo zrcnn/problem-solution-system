@@ -79,7 +79,7 @@
         <div class="modal-body">
             <form id="problemForm">
                 <input type="hidden" id="problemId">
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="problemProduct">所属产品 <span class="required">*</span></label>
@@ -171,14 +171,14 @@ async function loadProducts() {
     try {
         const response = await fetch('/api/products');
         products = await response.json();
-        
+
         // 填充筛选器
         const filterProduct = document.getElementById('filterProduct');
         filterProduct.innerHTML = '<option value="">全部产品</option>';
         products.forEach(p => {
             filterProduct.innerHTML += `<option value="${p.raw_id}">${p.name}</option>`;
         });
-        
+
         // 填充表单
         const problemProduct = document.getElementById('problemProduct');
         problemProduct.innerHTML = '<option value="">请选择产品</option>';
@@ -193,7 +193,7 @@ async function loadProducts() {
 // 加载分类列表
 async function loadCategories() {
     const productId = document.getElementById('problemProduct').value;
-    
+
     try {
         // 如果没有选择产品，不加载分类
         if (!productId) {
@@ -201,11 +201,11 @@ async function loadCategories() {
             problemCategory.innerHTML = '<option value="">请先选择产品</option>';
             return;
         }
-        
+
         // 调用后端 API 获取该产品的分类
         const response = await fetch(`/api/categories?product_id=${productId}`);
         const categories = await response.json();
-        
+
         // 填充表单中的分类下拉框
         const problemCategory = document.getElementById('problemCategory');
         problemCategory.innerHTML = '<option value="">请选择分类</option>';
@@ -230,12 +230,12 @@ async function loadSolutionCards() {
 // 渲染卡片选择器
 function renderCardSelector(selectedCardIds = []) {
     const container = document.getElementById('cardSelector');
-    
+
     if (solutionCards.length === 0) {
         container.innerHTML = '<p class="text-muted" style="padding: 20px; text-align: center;">暂无解决方案卡片</p>';
         return;
     }
-    
+
     let html = '';
     solutionCards.forEach(card => {
         const isChecked = selectedCardIds.includes(card.id) ? 'checked' : '';
@@ -246,7 +246,7 @@ function renderCardSelector(selectedCardIds = []) {
             </label>
         `;
     });
-    
+
     container.innerHTML = html;
 }
 
@@ -265,15 +265,15 @@ function getSelectedCardIds() {
 async function loadProblems() {
     const productId = document.getElementById('filterProduct').value;
     const categoryId = document.getElementById('filterCategory').value;
-    
+
     let url = '/api/problems?';
     if (productId) url += `product_id=${productId}&`;
     if (categoryId) url += `category_id=${categoryId}&`;
-    
+
     try {
         const response = await fetch(url);
         const problems = await response.json();
-        
+
         // 动态更新表格
         const tbody = document.querySelector('tbody');
         if (problems.length === 0) {
@@ -289,7 +289,7 @@ async function loadProblems() {
             `;
             return;
         }
-        
+
         tbody.innerHTML = problems.map((problem, index) => `
             <tr>
                 <td style="text-align: center;">${index + 1}</td>
@@ -329,24 +329,24 @@ async function editProblem(id) {
     try {
         const response = await fetch(`/api/problems/${id}`);
         if (!response.ok) throw new Error('获取问题信息失败');
-        
+
         const problem = await response.json();
-        
+
         document.getElementById('modalTitle').textContent = '编辑问题';
         document.getElementById('problemId').value = problem.id;
         document.getElementById('problemProduct').value = problem.product_id;
-        
+
         // 加载该产品下的分类
         await loadCategories();
-        
+
         document.getElementById('problemCategory').value = problem.category_id || '';
         document.getElementById('problemTitle').value = problem.title;
         document.getElementById('problemDescription').value = problem.description || '';
         document.getElementById('problemSolution').value = problem.solution || '';
-        
+
         // 渲染卡片选择器
         renderCardSelector(problem.card_ids || []);
-        
+
         document.getElementById('problemModal').classList.add('show');
     } catch (error) {
         showMessage('error', '获取问题信息失败: ' + error.message);
@@ -358,13 +358,13 @@ async function saveProblem() {
     const id = document.getElementById('problemId').value;
     const title = document.getElementById('problemTitle').value.trim();
     const productId = document.getElementById('problemProduct').value;
-    
+
     if (!title) {
         showMessage('error', '请输入问题标题');
         document.getElementById('problemTitle').focus();
         return;
     }
-    
+
     if (!productId) {
         showMessage('error', '请选择所属产品');
         document.getElementById('problemProduct').focus();
@@ -383,13 +383,13 @@ async function saveProblem() {
     try {
         const url = id ? `/api/problems/${id}` : '/api/problems';
         const method = id ? 'PUT' : 'POST';
-        
+
         const response = await apiRequest(url, method, data);
-        
+
         if (!response || !response.success) {
             throw new Error(response?.error || '操作失败');
         }
-        
+
         // 保存成功后显示提示并重定向到列表页
         sessionStorage.setItem('flashMessage', JSON.stringify({
             type: 'success',
@@ -419,18 +419,18 @@ function closeDeleteModal() {
 // 确认删除
 async function confirmDelete() {
     if (!deleteProblemId) return;
-    
+
     console.log('[confirmDelete] 尝试删除问题ID:', deleteProblemId);
 
     try {
         const response = await apiRequest(`/api/problems/${deleteProblemId}`, 'DELETE');
-        
+
         console.log('[confirmDelete] 响应状态:', response);
-        
+
         if (!response || !response.success) {
             throw new Error(response?.error || '删除失败');
         }
-        
+
         // 删除成功后显示提示并重定向到列表页
         sessionStorage.setItem('flashMessage', JSON.stringify({
             type: 'success',
@@ -454,9 +454,9 @@ document.querySelectorAll('.modal').forEach(modal => {
     });
 });
 
-// 回车保存
-document.getElementById('problemForm').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
+// 回车处理：textarea 中 Enter 保持默认换行，普通输入框中 Enter 保存
+document.getElementById('problemForm').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
         saveProblem();
     }

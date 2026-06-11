@@ -69,7 +69,7 @@
         <div class="modal-body">
             <form id="productForm">
                 <input type="hidden" id="productId">
-                
+
                 <div class="form-group">
                     <label for="productName">产品名称 <span class="required">*</span></label>
                     <input type="text" id="productName" class="form-control" required placeholder="请输入产品名称">
@@ -148,16 +148,16 @@ async function editProduct(id) {
     try {
         const response = await fetch(`/api/products/${id}`);
         if (!response.ok) throw new Error('获取产品信息失败');
-        
+
         const product = await response.json();
-        
+
         document.getElementById('modalTitle').textContent = '编辑产品';
         document.getElementById('productId').value = product.id;
         document.getElementById('productName').value = product.name;
         document.getElementById('productDescription').value = product.description || '';
         document.getElementById('productSortOrder').value = product.sort_order;
         document.getElementById('productIsActive').checked = product.is_active;
-        
+
         document.getElementById('productModal').classList.add('show');
     } catch (error) {
         showMessage('error', '获取产品信息失败: ' + error.message);
@@ -168,7 +168,7 @@ async function editProduct(id) {
 async function saveProduct() {
     const id = document.getElementById('productId').value;
     const name = document.getElementById('productName').value.trim();
-    
+
     if (!name) {
         showMessage('error', '请输入产品名称');
         document.getElementById('productName').focus();
@@ -185,7 +185,7 @@ async function saveProduct() {
     try {
         const url = id ? `/api/products/${id}` : '/api/products';
         const method = id ? 'PUT' : 'POST';
-        
+
         const response = await fetch(url, {
             method: method,
             headers: {
@@ -193,11 +193,11 @@ async function saveProduct() {
             },
             body: JSON.stringify(data)
         });
-        
+
         if (!response.ok) throw new Error('操作失败');
-        
+
         const result = await response.json();
-        
+
         if (result.success || result.id) {
             console.log('[saveProduct] 保存成功，刷新列表并显示提示');
             // 先刷新列表，再显示提示
@@ -240,11 +240,11 @@ async function confirmDelete() {
         const response = await fetch(`/api/products/${deleteProductId}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) throw new Error('删除失败');
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             console.log('[confirmDelete] 删除成功，刷新列表并显示提示');
             // 先刷新列表，再显示提示
@@ -275,9 +275,9 @@ document.querySelectorAll('.modal').forEach(modal => {
     });
 });
 
-// 回车保存
-document.getElementById('productForm').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
+// 回车处理：textarea 中 Enter 保持默认换行，普通输入框中 Enter 保存
+document.getElementById('productForm').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
         saveProduct();
     }

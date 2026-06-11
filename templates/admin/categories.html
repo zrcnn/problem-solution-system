@@ -79,7 +79,7 @@
         <div class="modal-body">
             <form id="categoryForm">
                 <input type="hidden" id="categoryId">
-                
+
                 <div class="form-group">
                     <label for="categoryProduct">所属产品 <span class="required">*</span></label>
                     <select id="categoryProduct" class="form-control" required>
@@ -158,14 +158,14 @@ async function loadProducts() {
     try {
         const response = await fetch('/api/products');
         products = await response.json();
-        
+
         // 填充筛选器
         const filterProduct = document.getElementById('filterProduct');
         filterProduct.innerHTML = '<option value="">全部分类</option>';
         products.forEach(p => {
             filterProduct.innerHTML += `<option value="${p.id}">${p.name}</option>`;
         });
-        
+
         // 填充表单
         const categoryProduct = document.getElementById('categoryProduct');
         categoryProduct.innerHTML = '<option value="">请选择产品</option>';
@@ -180,12 +180,12 @@ async function loadProducts() {
 // 加载分类列表
 async function loadCategories() {
     const productId = document.getElementById('filterProduct').value;
-    
+
     try {
         const url = productId ? `/api/categories?product_id=${productId}` : '/api/categories';
         const response = await fetch(url);
         const categories = await response.json();
-        
+
         // 这里简单刷新页面，实际应该动态更新表格
         location.reload();
     } catch (error) {
@@ -211,9 +211,9 @@ async function editCategory(id) {
     try {
         const response = await fetch(`/api/categories/${id}`);
         if (!response.ok) throw new Error('获取分类信息失败');
-        
+
         const category = await response.json();
-        
+
         document.getElementById('modalTitle').textContent = '编辑分类';
         document.getElementById('categoryId').value = category.id;
         document.getElementById('categoryProduct').value = category.product_id;
@@ -221,7 +221,7 @@ async function editCategory(id) {
         document.getElementById('categoryDescription').value = category.description || '';
         document.getElementById('categorySortOrder').value = category.sort_order;
         document.getElementById('categoryIsActive').checked = category.is_active;
-        
+
         document.getElementById('categoryModal').classList.add('show');
     } catch (error) {
         showMessage('error', '获取分类信息失败: ' + error.message);
@@ -233,13 +233,13 @@ async function saveCategory() {
     const id = document.getElementById('categoryId').value;
     const name = document.getElementById('categoryName').value.trim();
     const productId = document.getElementById('categoryProduct').value;
-    
+
     if (!name) {
         showMessage('error', '请输入分类名称');
         document.getElementById('categoryName').focus();
         return;
     }
-    
+
     if (!productId) {
         showMessage('error', '请选择所属产品');
         document.getElementById('categoryProduct').focus();
@@ -257,7 +257,7 @@ async function saveCategory() {
     try {
         const url = id ? `/api/categories/${id}` : '/api/categories';
         const method = id ? 'PUT' : 'POST';
-        
+
         const response = await fetch(url, {
             method: method,
             headers: {
@@ -265,21 +265,20 @@ async function saveCategory() {
             },
             body: JSON.stringify(data)
         });
-        
+
         if (!response.ok) throw new Error('操作失败');
-        
+
         const result = await response.json();
-        
+
         if (result.success || result.id) {
             console.log('[saveCategory] 保存成功，刷新列表并显示提示');
-            // 先刷新列表，再显示提示
-            location.reload();
             // 使用 sessionStorage 传递提示信息
             sessionStorage.setItem('flashMessage', JSON.stringify({
                 type: 'success',
                 message: id ? '分类已更新' : '分类已创建'
             }));
             closeModal();
+            location.reload();
         } else {
             console.log('[saveCategory] 保存响应异常:', result);
             showMessage('error', '操作失败');
@@ -311,21 +310,20 @@ async function confirmDelete() {
         const response = await fetch(`/api/categories/${deleteCategoryId}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) throw new Error('删除失败');
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             console.log('[confirmDelete] 删除成功，刷新列表并显示提示');
-            // 先刷新列表，再显示提示
-            location.reload();
             // 使用 sessionStorage 传递提示信息
             sessionStorage.setItem('flashMessage', JSON.stringify({
                 type: 'success',
                 message: '分类已删除'
             }));
             closeDeleteModal();
+            location.reload();
         } else {
             console.log('[confirmDelete] 删除响应异常:', result);
             showMessage('error', '删除失败');
@@ -346,9 +344,9 @@ document.querySelectorAll('.modal').forEach(modal => {
     });
 });
 
-// 回车保存
-document.getElementById('categoryForm').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
+// 回车处理：textarea 中 Enter 保持默认换行，普通输入框中 Enter 保存
+document.getElementById('categoryForm').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
         saveCategory();
     }

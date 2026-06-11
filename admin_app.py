@@ -26,7 +26,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # 创建独立的应用
-admin_app = Flask('admin_app', 
+admin_app = Flask('admin_app',
                   template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'),
                   static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'))
 admin_app.config.from_object(Config)
@@ -70,7 +70,7 @@ def jwt_required(f):
             if payload:
                 request.current_admin = payload
                 return f(*args, **kwargs)
-        
+
         # 如果Header中没有，尝试从Cookie获取
         token = request.cookies.get('admin_token')
         if token:
@@ -78,7 +78,7 @@ def jwt_required(f):
             if payload:
                 request.current_admin = payload
                 return f(*args, **kwargs)
-        
+
         # 都没有则返回401
         return jsonify({'error': 'Missing or invalid Authorization header'}), 401
     return decorated_function
@@ -114,7 +114,7 @@ class Product(db.Model):
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # 关系：删除产品时级联删除关联的分类和问题
     categories = db.relationship('Category', backref='product', lazy=True, cascade='all, delete-orphan')
     problems = db.relationship('Problem', backref='product', lazy=True, cascade='all, delete-orphan')
@@ -127,7 +127,7 @@ class Category(db.Model):
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
-    
+
     # 关系：删除分类时级联删除关联的问题
     problems = db.relationship('Problem', backref='category', lazy=True, cascade='all, delete-orphan')
 
@@ -167,7 +167,7 @@ class SolutionCard(db.Model):
     solution = db.Column(db.Text)
     supplement = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # 关联到卡片分类
     card_category = db.relationship('CardCategory', backref='solution_cards')
 
@@ -226,11 +226,11 @@ def log_action(action, target_type, target_id=None, details=None):
 def login():
     if request.method == 'GET':
         return render_template('admin/login.html')
-    
+
     data = request.get_json() if request.is_json else request.form
     username = data.get('username', '')
     password = data.get('password', '')
-    
+
     admin = Admin.query.filter_by(username=username).first()
     if admin and check_password_hash(admin.password_hash, password):
         if not admin.is_active:
@@ -238,12 +238,12 @@ def login():
         else:
             admin.last_login = datetime.utcnow()
             db.session.commit()
-            
+
             log_action('login', 'admin', admin.id)
-            
+
             # 生成JWT token
             token = create_jwt_token(admin.id, admin.username)
-            
+
             if request.is_json:
                 return jsonify({
                     'success': True,
@@ -259,7 +259,7 @@ def login():
             return redirect(url_for('dashboard'))
     else:
         error = "用户名或密码错误"
-    
+
     if request.is_json:
         return jsonify({'success': False, 'message': error}), 401
     flash(error, 'error')
@@ -286,9 +286,9 @@ def dashboard():
     category_count = Category.query.count()
     feedback_count = Feedback.query.count()
     feedback_pending = Feedback.query.filter_by(is_processed=False).count()
-    
+
     recent_logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(10).all()
-    
+
     return render_template('admin/dashboard.html',
                          product_count=product_count,
                          problem_count=problem_count,
@@ -395,13 +395,13 @@ def delete_product(product_id):
 @jwt_required
 def categories():
     product_id = request.args.get('product_id', type=int)
-    
+
     query = Category.query
     if product_id:
         query = query.filter_by(product_id=product_id)
-    
+
     categories = query.order_by(Category.sort_order).all()
-    
+
     # 转换为字典列表，包含关联信息
     categories_data = []
     for c in categories:
@@ -415,7 +415,7 @@ def categories():
             'product_id': c.product_id,
             'product_name': product.name if product else '-'
         })
-    
+
     return render_template('admin/categories.html', categories=categories_data)
 
 # 分类管理 API
@@ -452,6 +452,19 @@ def create_category():
     log_action('create', 'category', category.id, {'name': category.name})
     return jsonify({'id': category.id, 'success': True})
 
+@admin_app.route('/api/categories/<int:category_id>', methods=['GET'])
+@jwt_required
+def get_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    return jsonify({
+        'id': category.id,
+        'name': category.name,
+        'description': category.description,
+        'sort_order': category.sort_order,
+        'is_active': category.is_active,
+        'product_id': category.product_id
+    })
+
 @admin_app.route('/api/categories/<int:category_id>', methods=['PUT'])
 @jwt_required
 def update_category(category_id):
@@ -480,15 +493,15 @@ def delete_category(category_id):
 def problems():
     product_id = request.args.get('product_id', type=int)
     category_id = request.args.get('category_id', type=int)
-    
+
     query = Problem.query
     if product_id:
         query = query.filter_by(product_id=product_id)
     if category_id:
         query = query.filter_by(category_id=category_id)
-    
+
     problems = query.order_by(Problem.created_at.desc()).all()
-    
+
     # 转换为字典列表，包含关联信息
     problems_data = []
     for p in problems:
@@ -505,7 +518,7 @@ def problems():
             'solution': p.solution,
             'created_at': p.created_at.strftime('%Y-%m-%d %H:%M:%S')
         })
-    
+
     return render_template('admin/problems.html', problems=problems_data)
 
 # 问题管理 API
@@ -546,11 +559,11 @@ def get_problem(problem_id):
     problem = Problem.query.get(real_id)
     if not problem:
         return jsonify({'error': 'Problem not found'}), 404
-    
+
     # 获取关联的解决方案卡片
     problem_cards = ProblemCard.query.filter_by(problem_id=real_id).all()
     card_ids = [pc.card_id for pc in problem_cards]
-    
+
     return jsonify({
         'id': id_crypt.encrypt_problem_id(problem.id),
         'title': problem.title,
@@ -575,14 +588,14 @@ def create_problem():
     )
     db.session.add(problem)
     db.session.commit()
-    
+
     # 处理卡片关联
     card_ids = data.get('card_ids', [])
     for card_id in card_ids:
         pc = ProblemCard(problem_id=problem.id, card_id=card_id)
         db.session.add(pc)
     db.session.commit()
-    
+
     log_action('create', 'problem', problem.id, {'title': problem.title, 'card_count': len(card_ids)})
     return jsonify({'id': problem.id, 'success': True})
 
@@ -600,7 +613,7 @@ def update_problem(problem_id):
     problem.category_id = data.get('category_id', problem.category_id)
     problem.solution = data.get('solution', problem.solution)
     problem.updated_at = datetime.utcnow()
-    
+
     # 处理卡片关联
     if 'card_ids' in data:
         # 删除旧的关联
@@ -609,7 +622,7 @@ def update_problem(problem_id):
         for card_id in data['card_ids']:
             pc = ProblemCard(problem_id=real_id, card_id=card_id)
             db.session.add(pc)
-    
+
     db.session.commit()
     log_action('update', 'problem', real_id, {'title': problem.title})
     return jsonify({'success': True})
@@ -631,7 +644,7 @@ def delete_problem(problem_id):
 def solution_cards():
     table_num = request.args.get('table_num', 1, type=int)
     cards = SolutionCard.query.filter_by(table_num=table_num).order_by(SolutionCard.sequence).all()
-    
+
     cards_data = [{
         'id': id_crypt.encrypt_card_id(c.id),
         'table_num': c.table_num,
@@ -643,7 +656,7 @@ def solution_cards():
         'solution': c.solution,
         'supplement': c.supplement
     } for c in cards]
-    
+
     return render_template('admin/solution_cards.html', cards=cards_data, current_table=table_num)
 
 # 解决方案卡片 API
@@ -827,7 +840,7 @@ def get_logs():
 def init_db():
     with admin_app.app_context():
         db.create_all()
-        
+
         # 创建默认管理员
         admin = Admin.query.filter_by(username='admin').first()
         if not admin:
@@ -927,16 +940,16 @@ def feedback():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     is_processed = request.args.get('is_processed', type=lambda v: v == 'true')
-    
+
     query = Feedback.query
-    
+
     if is_processed is not None:
         query = query.filter_by(is_processed=is_processed)
-    
+
     feedbacks = query.order_by(Feedback.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
-    
+
     feedbacks_data = []
     for f in feedbacks.items:
         # 解析文件列表
@@ -947,7 +960,7 @@ def feedback():
                 files = json.loads(f.image_paths)
             except:
                 files = []
-        
+
         # 计算剩余清理时间（10天后清理）
         cleanup_days = 10
         days_remaining = None
@@ -960,7 +973,7 @@ def feedback():
                 days_remaining = delta.days
             else:
                 days_remaining = 0
-        
+
         feedbacks_data.append({
             'id': f.id,
             'product_id': f.product_id,
@@ -972,8 +985,8 @@ def feedback():
             'is_processed': f.is_processed,
             'days_remaining': days_remaining
         })
-    
-    return render_template('admin/feedback.html', 
+
+    return render_template('admin/feedback.html',
                          feedbacks=feedbacks_data,
                          pagination=feedbacks,
                          current_page=page,
@@ -986,16 +999,16 @@ def get_feedback():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     is_processed = request.args.get('is_processed', type=lambda v: v == 'true')
-    
+
     query = Feedback.query
-    
+
     if is_processed is not None:
         query = query.filter_by(is_processed=is_processed)
-    
+
     feedbacks = query.order_by(Feedback.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
-    
+
     feedbacks_data = []
     for f in feedbacks.items:
         # 解析文件列表
@@ -1006,7 +1019,7 @@ def get_feedback():
                 files = json.loads(f.image_paths)
             except:
                 files = []
-        
+
         # 计算剩余清理时间（10天后清理）
         cleanup_days = 10
         days_remaining = None
@@ -1019,7 +1032,7 @@ def get_feedback():
                 days_remaining = delta.days
             else:
                 days_remaining = 0
-        
+
         feedbacks_data.append({
             'id': f.id,
             'product_id': f.product_id,
@@ -1031,7 +1044,7 @@ def get_feedback():
             'is_processed': f.is_processed,
             'days_remaining': days_remaining
         })
-    
+
     return jsonify({
         'items': feedbacks_data,
         'total': feedbacks.total,
@@ -1045,10 +1058,10 @@ def get_feedback():
 def update_feedback(feedback_id):
     feedback = Feedback.query.get_or_404(feedback_id)
     data = request.get_json()
-    
+
     if 'is_processed' in data:
         feedback.is_processed = data['is_processed']
-    
+
     db.session.commit()
     log_action('update', 'feedback', feedback_id, {'is_processed': feedback.is_processed})
     return jsonify({'success': True})
@@ -1069,12 +1082,12 @@ def serve_feedback_image(filename):
         # 获取上传目录，默认为项目下的uploads/feedback
         basedir = os.path.abspath(os.path.dirname(__file__))
         upload_dir = os.path.join(basedir, 'uploads', 'feedback')
-        
+
         filepath = os.path.join(upload_dir, filename)
-        
+
         if not os.path.exists(filepath):
             return 'Image not found', 404
-        
+
         # 检测文件类型
         if filename.lower().endswith('.png'):
             content_type = 'image/png'
@@ -1084,10 +1097,10 @@ def serve_feedback_image(filename):
             content_type = 'image/gif'
         else:
             content_type = 'application/octet-stream'
-        
+
         with open(filepath, 'rb') as f:
             image_data = f.read()
-        
+
         return make_response(image_data, 200, {'Content-Type': content_type})
     except Exception as e:
         import traceback
